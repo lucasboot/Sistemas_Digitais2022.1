@@ -15,6 +15,7 @@
 #define SPRITE PB2
 #define GUARANA PB1
 #define TROCO PB0
+#define ERRO PD7
 
 //BOTÕES
 #define BOTAO_PRESENCA PC2
@@ -37,6 +38,13 @@ const unsigned char Tabela[] = {0x3F, 0x06, 0x5B, 0x4F,
                                 0x7F, 0x67, 0x77, 0x7C,
                                 0x39, 0x5E, 0x79, 0x71};
 
+//função para simbolizar os erros durante execução
+void erroOcorreu(){
+  set_bit(PORTD, ERRO);
+  _delay_ms(1000);
+  clr_bit(PORTD, ERRO);
+}
+//função para simbolizar o recebimento da bebida escolhida [index]
 void piscarLed(int index)
 {
   for (int i = 0; i < 3; i++)
@@ -47,13 +55,13 @@ void piscarLed(int index)
     _delay_ms(500);
   }
 }
-
+//função para simular o fornecimento do troco com um LED
 void recebendoTroco(int tempo){
   set_bit(PORTB, TROCO);
   _delay_ms(tempo);
   clr_bit(PORTB, TROCO);
 }
-
+//função para simular o fornecimento do troco
 void darTroco (){
   for (int i = credito; i >= 0; i--){
      PORTD = Tabela[i];
@@ -63,6 +71,7 @@ void darTroco (){
   recebendoTroco(3000);
 
 }
+//função para realizar a confirmação do pedido de uma bebida específica
 void realizarPedido(int preco)
 {
   desligarLeds();
@@ -73,6 +82,7 @@ void realizarPedido(int preco)
   PORTD = Tabela[credito];
   selecao = 0;
 }
+//função para controlar o evento de inserir moeda na máquina
 void depositarMoeda()
 {
   colocandoMoeda = true;
@@ -80,13 +90,13 @@ void depositarMoeda()
   {
     if (!tst_bit(PINC, BOTAO_1r))
     {
-      if (dinheiro <= 4.0) dinheiro += 1.0;
+      if (dinheiro <= 4.0){dinheiro += 1.0;} else{erroOcorreu();}
       colocandoMoeda = false;
       //_delay_ms(500);
     }
     if (!tst_bit(PINC, BOTAO_50c))
     {
-      if (dinheiro <= 4.0) dinheiro += 0.5;
+      if (dinheiro <= 4.0){dinheiro += 0.5;} else{erroOcorreu();}
       colocandoMoeda = false;
       //_delay_ms(500);
     }
@@ -109,6 +119,7 @@ void depositarMoeda()
 
   } // terminei de colocar a moeda
 }
+//função para desligar todos os LEDs de bebida
 void desligarLeds()
 {
   for (unsigned int i = 0; i < 5; i++)
@@ -116,6 +127,7 @@ void desligarLeds()
     clr_bit(PORTB, Bebidas[i]); // desligando leds
   }
 }
+//função para realizar as configurações iniciais do circuito
 void setup()
 {
   for (unsigned int i = 0; i < 5; i++)
@@ -162,11 +174,16 @@ ISR(PCINT1_vect) //interrupções nos pinos definidos no setup realizam diferent
       _delay_ms(1000);
       if (credito > 0) darTroco();
     }
-    else if (selecao > 1 && dinheiro >= 3)
+    else if ((selecao > 1 && selecao < 6) && dinheiro >= 3)
     {
       realizarPedido(3);
       _delay_ms(1000);
       if (credito > 0) darTroco();
+    }
+    else if (selecao >= 6)
+    {
+       erroOcorreu();
+       selecao = 0;
     }
   }
   _delay_ms(100);
