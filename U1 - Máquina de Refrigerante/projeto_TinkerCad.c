@@ -69,9 +69,8 @@ void darTroco (){
      _delay_ms(500);
   }
   credito = 0;
-  dinheiro=0;
+  dinheiro = 0;
   recebendoTroco(3000);
-
 }
 //função para realizar a confirmação do pedido de uma bebida específica
 void realizarPedido(int preco)
@@ -93,12 +92,14 @@ void depositarMoeda()
   {
     if (!tst_bit(PINC, BOTAO_1r))
     {
-      if (dinheiro <= 4.0){dinheiro += 1.0;} else{erroOcorreu();}
+      if (dinheiro == 3.5){dinheiro += 0.5; erroOcorreu();}
+      else if (dinheiro <= 3.0){dinheiro += 1.0;} 
+      else{erroOcorreu();}
       colocandoMoeda = false;
     }
     if (!tst_bit(PINC, BOTAO_50c))
     {
-      if (dinheiro <= 4.0){dinheiro += 0.5;} else{erroOcorreu();}
+      if (dinheiro <= 3.5){dinheiro += 0.5;} else{erroOcorreu();}
       colocandoMoeda = false;
     }
     if (dinheiro <= 4.0)
@@ -118,7 +119,7 @@ void depositarMoeda()
       }
     }
 
-  } // terminei de colocar a moeda
+  } // terminei de colocar as moedas
 }
 //função para desligar todos os LEDs de bebida
 void desligarLeds()
@@ -166,19 +167,20 @@ ISR(PCINT1_vect) //interrupções nos pinos definidos no setup realizam diferent
     {
       selecao++;
     }
-    else if(selecao >= 1 && dinheiro >= 3)
+    else if(selecao >= 1 && selecao<5 && dinheiro >= 3)
     {
       selecao++;
     }
     else
     {
       erroOcorreu();
+      selecao = 0;
     }
   }
   else if (!(tst_bit(PINC, BOTAO_CONFIRMAR))) //confirmar o pedido
   {
-    
-    if (selecao == 1 && dinheiro >= 2)
+    if (selecao == 0){erroOcorreu();}
+    else if (selecao == 1 && dinheiro >= 2)
     {
       realizarPedido(2);
       _delay_ms(1000);
