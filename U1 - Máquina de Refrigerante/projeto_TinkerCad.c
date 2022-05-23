@@ -16,6 +16,7 @@
 #define GUARANA PB1
 #define TROCO PB0
 #define ERRO PD7
+#define DISPONIVEL PC3
 
 //BOTÕES
 #define BOTAO_PRESENCA PC2
@@ -68,6 +69,7 @@ void darTroco (){
      _delay_ms(500);
   }
   credito = 0;
+  dinheiro=0;
   recebendoTroco(3000);
 
 }
@@ -85,6 +87,7 @@ void realizarPedido(int preco)
 //função para controlar o evento de inserir moeda na máquina
 void depositarMoeda()
 {
+  if(dinheiro == 0) clr_bit(PORTC, DISPONIVEL);
   colocandoMoeda = true;
   while (colocandoMoeda)
   {
@@ -92,13 +95,11 @@ void depositarMoeda()
     {
       if (dinheiro <= 4.0){dinheiro += 1.0;} else{erroOcorreu();}
       colocandoMoeda = false;
-      //_delay_ms(500);
     }
     if (!tst_bit(PINC, BOTAO_50c))
     {
       if (dinheiro <= 4.0){dinheiro += 0.5;} else{erroOcorreu();}
       colocandoMoeda = false;
-      //_delay_ms(500);
     }
     if (dinheiro <= 4.0)
     {
@@ -136,7 +137,7 @@ void setup()
   }
   DDRB = 1 << TROCO; // led do troco como saida
   PORTB = 0x00; // leds começam desligadas
-  PORTC = 0xFF; // botoes de depositar moeda
+  PORTC = 0x37; // botoes de depositar moeda
   DDRC = 0x00;  // botoes em pull up selecionar bebida
   PCICR = 1 << PCIE1; //habilita interrupção por mudanças de sinal no PORTC
   PCMSK1 = (1 << PCINT8) | (1 << PCINT9) | (1 << PCINT10) | (1 << PCINT11) | 
@@ -144,6 +145,7 @@ void setup()
   sei(); //habilita as interrupções
   DDRD = 0x7F;  // 7 segmentos, pinos como saída
   PORTD = 0x3F; // 7 segmentos, inicialmente com 0
+  set_bit(PORTC, DISPONIVEL);
 }
 int main()
 {
@@ -157,12 +159,20 @@ ISR(PCINT1_vect) //interrupções nos pinos definidos no setup realizam diferent
   { 
     depositarMoeda();
   }
-  else if (!(tst_bit(PINC, BOTAO_SELECAO)) && dinheiro >= 2) //contador para o tipo de bebida
+  else if (!(tst_bit(PINC, BOTAO_SELECAO))) //contador para o tipo de bebida
   {
     //_delay_ms(100);
-    if (selecao <= 5)
+    if (selecao == 0 && dinheiro >= 2)
     {
       selecao++;
+    }
+    else if(selecao >= 1 && dinheiro >= 3)
+    {
+      selecao++;
+    }
+    else
+    {
+      erroOcorreu();
     }
   }
   else if (!(tst_bit(PINC, BOTAO_CONFIRMAR))) //confirmar o pedido
@@ -173,12 +183,14 @@ ISR(PCINT1_vect) //interrupções nos pinos definidos no setup realizam diferent
       realizarPedido(2);
       _delay_ms(1000);
       if (credito > 0) darTroco();
+      set_bit(PORTC, DISPONIVEL);
     }
     else if ((selecao > 1 && selecao < 6) && dinheiro >= 3)
     {
       realizarPedido(3);
       _delay_ms(1000);
       if (credito > 0) darTroco();
+      set_bit(PORTC, DISPONIVEL);
     }
     else if (selecao >= 6)
     {
