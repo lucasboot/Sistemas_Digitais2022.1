@@ -113,7 +113,7 @@ void depositarMoeda()
     }
     if (dinheiro == 3 || dinheiro == 3.5)
     {
-      for (unsigned int i = 0; i < 5; i++)
+      for (unsigned int i = 1; i < 5; i++)
       {
         set_bit(PORTB, Bebidas[i]);
       }
@@ -166,15 +166,29 @@ ISR(PCINT1_vect) //interrupções nos pinos definidos no setup realizam diferent
     if (selecao == 0 && dinheiro >= 2)
     {
       selecao++;
+      for (unsigned int i = 0; i < 5; i++)
+      {
+        clr_bit(PORTB, Bebidas[i]);
+      }
+      set_bit(PORTB, Bebidas[selecao-1]);
     }
     else if(selecao >= 1 && selecao<5 && dinheiro >= 3)
     {
       selecao++;
+      for (unsigned int i = 0; i < 5; i++)
+      {
+        clr_bit(PORTB, Bebidas[i]);
+      }
+      set_bit(PORTB, Bebidas[selecao-1]);
     }
     else
     {
       erroOcorreu();
       selecao = 0;
+      for (unsigned int i = 0; i < 5; i++)
+      {
+        set_bit(PORTB, Bebidas[i]);
+      }
     }
   }
   else if (!(tst_bit(PINC, BOTAO_CONFIRMAR))) //confirmar o pedido
