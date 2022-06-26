@@ -71,9 +71,9 @@ ISR(USART_RX_vect){
 }
 int main(){
 	UART_Init(); //Inicialização do USART
-	uartString("Digite L ou D.\r \n"); //
-	uartIntRx(1);//Habilita a interrupção de recep.
-	sei(); //Habilita a interrupção geral.
-	while(1);
+	sei();
+  while(1){
+  	uart_Transmit(50);
+  };
 }
 

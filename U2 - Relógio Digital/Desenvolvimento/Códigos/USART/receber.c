@@ -64,14 +64,19 @@ void uartIntTx(uint8_t _hab){
 ISR(USART_RX_vect){
 	uint8_t dado_rx; //Variável para armazenar dado recebido;
 	dado_rx = uartRX(); //Armazena o dado;
-	uartString("Você digitou: "); 
+  	if(dado_rx == 50){
+      PORTB = (1 << PB5); //ligar led
+  	}
+	//uartString("Você digitou: "); 
 	while(!uartTxOk());//Aguarda o último dado ser enviado;
-	uart_Transmit(dado_rx); //Envia o caracter recebido
+	//uart_Transmit(dado_rx); //Envia o caracter recebido
 	uartString("\r\n"); //Nova linha
 }
 int main(){
+  	DDRB = 0x20; // Pinos PB configurados como entrada, exceto PB5
+	PORTB = 0x00; //PB5 em alto
 	UART_Init(); //Inicialização do USART
-	uartString("Digite L ou D.\r \n"); //
+	uartString("Digite algo.\r \n"); 
 	uartIntRx(1);//Habilita a interrupção de recep.
 	sei(); //Habilita a interrupção geral.
 	while(1);
