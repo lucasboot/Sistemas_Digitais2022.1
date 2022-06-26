@@ -1,8 +1,27 @@
+//Configurações
 #define F_CPU 16000000UL
 #define BAUD 9600
 #define MYUBRR F_CPU/16/BAUD-1
+
+//Bibliotecas
 #include <avr/io.h>
 #include <avr/interrupt.h>
+#include <util/delay.h>
+
+
+//Macros
+#define set_bit(Y, bit_x) (Y |= (1 << bit_x)) //ligar os LEDs
+#define clr_bit(Y, bit_x) (Y &= ~(1 << bit_x)) //desligar os LEDs
+#define tst_bit(Y, bit_x) (Y & (1 << bit_x)) //testar se os botões foram pressionados
+
+int cont = 0;
+int segUnidade = 0;
+int minUnidade = 0;
+int minDezena = 5;
+
+const unsigned char Tabela[] = {0x00, 0x04, 0x08, 0x0C,
+                                 0x10, 0x14, 0x18,0x1C,
+                                 0x20, 0x24};
 
 //Assinatura das funções de comunicação
 void UART_Init(void);
@@ -13,6 +32,76 @@ uint8_t uartRxOk(void);
 uint8_t uartRX();
 void uartIntRx(uint8_t _hab);
 void uartIntTx(uint8_t _hab);
+
+
+void setup()
+{
+  DDRD = 0xFC;  //1111 1100 PD2 até PD7
+  DDRB = 0xFF; // 1111 1111 PB0 até PB5
+  DDRC = 0x3F;
+  
+  PORTB = Tabela[minDezena]; //dez minutos
+  PORTD = Tabela[0]; //uni minutos
+  PORTC = Tabela[0]; //uni segundos
+  
+  //temporizador modo normal
+  TCCR0B = (1 << CS02) | (1 <<CS00); //prescaller 1024 101
+  TCCR0A = 0;
+  TIMSK0 = 1<<TOIE0;
+  
+  
+  //UART INIT
+  UART_Init();
+  uartIntRx(1);//Habilita a interrupção de recep.
+
+  sei();
+
+ //set_bit(PORTB, PB1);
+
+
+  
+}
+int main(){
+  setup(); 
+  while (1){} //loop de exução
+  return 0;
+}
+
+
+ISR(TIMER0_OVF_vect){
+  cont++;
+  if(cont >= 1){ //1000 / 16,384 = 61,03
+    if(segUnidade <= 8){
+    	segUnidade++;
+    } else {
+      segUnidade = 0;
+      uart_Transmit(50);
+    }
+    PORTC = Tabela[segUnidade];
+    cont = 0;
+    
+  }
+}
+
+ISR(USART_RX_vect){
+	uint8_t dado_rx; //Variável para armazenar dado recebido;
+	dado_rx = uartRX(); //Armazena o dado;
+  	if(dado_rx == 60){
+      minUnidade++;
+      if(minUnidade > 9){ //passou 10seg
+      	minUnidade = 0;
+        minDezena++;
+        if(minDezena > 5){ //passou 60min
+        	minDezena=0;
+          	uart_Transmit(70);
+        }
+        PORTB = Tabela[minDezena];
+      }
+      PORTD = Tabela[minUnidade];
+  	}
+  	
+
+}
 
 //Função para inicialização da USART
 void UART_Init(void){
@@ -71,19 +160,4 @@ void uartIntTx(uint8_t _hab){
 	}
 }
 
-ISR(USART_RX_vect){
-	uint8_t dado_rx; //Variável para armazenar dado recebido;
-	dado_rx = uartRX(); //Armazena o dado;
-	uartString("Você digitou: "); 
-	while(!uartTxOk());//Aguarda o último dado ser enviado;
-	uart_Transmit(dado_rx); //Envia o caracter recebido
-	uartString("\r\n"); //Nova linha
-}
-int main(){
-	UART_Init(); //Inicialização do USART
-	sei();
-  while(1){
-  	uart_Transmit(50);
-  };
-}
 
