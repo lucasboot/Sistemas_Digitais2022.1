@@ -17,7 +17,10 @@
 int cont = 0;
 int segUnidade = 0;
 int minUnidade = 0;
-int minDezena = 5;
+int minDezena = 0;
+
+enum estados{INICIAL=1, AJUSTE_HORA, RELOGIO, CRIAR_ALARME, TOCAR_ALARME};
+estados atual = INICIAL;
 
 const unsigned char Tabela[] = {0x00, 0x04, 0x08, 0x0C,
                                  0x10, 0x14, 0x18,0x1C,
@@ -69,17 +72,19 @@ int main(){
 
 
 ISR(TIMER0_OVF_vect){
-  cont++;
-  if(cont >= 1){ //1000 / 16,384 = 61,03
-    if(segUnidade <= 8){
-    	segUnidade++;
-    } else {
-      segUnidade = 0;
-      uart_Transmit(50);
+  if(atual != INICIAL && atual != AJUSTE_HORA){
+    cont++;
+    if(cont >= 1){ //1000 / 16,384 = 61,03
+      if(segUnidade <= 8){
+        segUnidade++;
+      } else {
+        segUnidade = 0;
+        uart_Transmit(65);
+      }
+      PORTC = Tabela[segUnidade];
+      cont = 0;
+      
     }
-    PORTC = Tabela[segUnidade];
-    cont = 0;
-    
   }
 }
 
@@ -99,6 +104,12 @@ ISR(USART_RX_vect){
       }
       PORTD = Tabela[minUnidade];
   	}
+    if(dado_rx < 60 && atual != INICIAL){
+      int dezena = dado_rx/10;
+ 	    int unidade = dado_rx%10;
+      PORTD = Tabela[unidade];
+      PORTB = Tabela[dezena];
+    }
   	
 
 }
