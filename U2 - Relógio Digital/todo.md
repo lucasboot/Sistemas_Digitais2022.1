@@ -1,0 +1,6 @@
+- Criar alarme, caso diferente pro potenciometro pra evitar usar as variáveis normais
+- Tocar alarme com um timer próprio
+- Opção de soneca 5min
+- Volume do Buzzer
+- Arrumar os fios
+- Apresentação
