@@ -99,10 +99,8 @@ ISR(TIMER0_OVF_vect){
     if(cont2 >= 10){
       clp_bit(PORTD, PD6);
       cont2 = 0;
+    }   
     }
-      
-    }
-
   }
 
 

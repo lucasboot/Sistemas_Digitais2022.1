@@ -165,10 +165,7 @@ ISR(TIMER0_OVF_vect){ //temporizador do alarme contAlarme e tempoAteAlarme
           OCR2A=50;
         else
           aux=0;
-        //_delay_ms(200);
-        //OCR2A=0;
     }
-
   }
 //interrupção de recepcao
 ISR(USART_RX_vect){
@@ -349,9 +346,6 @@ ISR(PCINT0_vect) //interrupções nos botões
           criando = true;
           //solicitar minutos do outro arduino
           uart_Transmit(10); 
-
-
-
     }
   } else if (!(tst_bit(PINB, BOTAO_ALARME))) {
         if(atual == RELOGIO){ //começa a criar alarme
