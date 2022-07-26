@@ -32,23 +32,23 @@
 //Estados, so tem 2 que nao tem transicao vazia, então 
 //so precisa de um bool funcionando OU mudando_temp
 bool mudando_temp = false;
-unsigned int cont = 0;
+
 
 
 //Modos
-const unsigned char azul = 0x13; // 0x0A; //010
-const unsigned char vermelho = 0x0B ; // 0x0C;//100
-const unsigned char verde =0x23; //0x09; //001
-
+const unsigned char azul = 0x0A; //010
+const unsigned char vermelho = 0x0C;//100
+const unsigned char verde = 0x09; //001
 //Variaveis importantes
-unsigned int indiceModo = 1; // 0 -> COOL, 1-> FAN, 2->AUTO
+unsigned int indiceModo = 0; // 0 -> COOL, 1-> FAN, 2->AUTO
 const unsigned char Modos[]={azul, vermelho, verde};
 //Temperatura selecionada
-unsigned int temperatura = 24; //comeca setado em 25°C
-unsigned int temperaturaReal;
+unsigned int temperatura = 25; //comeca setado em 25°C
 
 
-const unsigned char VetorDisplay[10]= {0xC3,0xC7,0xCB,0xCF,0xD3,0xD7,0xDB,0xDF,0xE3,0xE7};
+const unsigned char display[] = {0x00, 0x04, 0x08, 0x0C,
+                                 0x10, 0x14, 0x18,0x1C,
+                                 0x20, 0x24};
 
 
 //Assinatura das funções de comunicação
@@ -72,14 +72,11 @@ uint16_t adcReadOnly();
 uint16_t adcRead();
 void adcIntEn(uint8_t x);
 
-void atualizaDisplay(int valor);
-
 
 void setup(){
   	DDRB = 0x3F; 
-    DDRC = 0x3F;
-  	PORTC = Modos[indiceModo]; //começa azul
-  	atualizaDisplay(temperatura);
+  	PORTB = Modos[indiceModo]; //começa azul
+
     //Interrupção botão
     PCICR = (1 << PCIE0);
     PCMSK0 = (1 << PCINT3);
@@ -87,13 +84,6 @@ void setup(){
     //UART INIT
     UART_Init();
     uartIntRx(1);//Habilita a interrupção de recep.
-
-    //Temporizador modo normal
-    TCCR0B = (1 << CS02) | (1 <<CS00); //prescaller 1024 101
-    TCCR0A = 0;
-    TIMSK0 = 0<<TOIE0; //temporizador inicia desligado, só é ativado no modo AUTO
-  
-  
 
     //Configs ADC
     adcBegin(AVCC, 0x01);   //Inicializa A/D
@@ -117,69 +107,55 @@ ISR(USART_RX_vect){
 	dado_rx = uartRX(); //Armazena o dado;
     if(dado_rx == 77 | dado_rx == 109){
         indiceModo++;
-        if(indiceModo == 2) //modo AUTO
-            TIMSK0 = 1<<TOIE0;
-        else
-            TIMSK0 = 0<<TOIE0;
-
         if(indiceModo>2)
             indiceModo = 0;
-        PORTC = Modos[indiceModo]; 
+        PORTB = Modos[indiceModo]; 
     }
   	if(dado_rx == 84 | dado_rx == 116){ //modo set temp
         mudando_temp = true;
     }
 
 }
-/*
+
 ISR(PCINT0_vect) //interrupção do botão, confirmar temperatura
 {
     //uartString("Oi"); FUNCIONANDO
     if(mudando_temp)
         mudando_temp=false;
 }
-*/
+
 uint16_t parte = 68; //1023/15 = 68
 //Tratamendo da interrupção do A/D
 ISR(ADC_vect)
 { 
-    uartDec2B(mudando_temp);
     if(mudando_temp){
         adcChannel(ADC0);       //Seleciona canal
         uint16_t valor = adcReadOnly();
         uint16_t temperatura = valor/parte + 16;
         if(temperatura > 30)
             temperatura = 30;
+        uartDec2B(temperatura);
+        uartString("\n");
         //Transmitir para o outro arduino o valor
-        //uartDec2B(temperatura);
-        atualizaDisplay(temperatura);
+        uint16_t dezena = temperatura/10;
+        uint16_t unidade = temperatura%10;
     
     } else { //sensor de temperatura
         adcChannel(ADC1);       //Seleciona canal
-        //uartString("Temperatura: ");    //Envia string
+        uartString("Temperatura: ");    //Envia string
         uint16_t valor = adcReadOnly();
         uint16_t temperatura = (valor*(5000 / 1024.0)-500)/10; //fórmula da conversão
-        temperaturaReal = temperatura;
-      	/*
-      	uint16_t dezena = temperatura/10;
+        uint16_t dezena = temperatura/10;
  	    uint16_t unidade = temperatura%10;
         //uartDec2B(temperatura); //Ler e envia valor do A/D
         uartDec2B(dezena); //Ler e envia valor do A/D
  	    uartDec2B(unidade); //Ler e envia valor do A/D
-        uartString("\n"); 
-        */
+        uartString("\n");   
     }
 
 }
 
-ISR(TIMER0_OVF_vect){
-    cont++;
-    if(cont >= 61){ //pasou 1min
-        cont = 0;
-        //uartString("alou");
-    }
 
-}
 
 
 
@@ -351,13 +327,4 @@ void adcIntEn(uint8_t x)
 	ADCSRA |= (1<<ADIE);//habilita interrupção do ADC
 	else
 	ADCSRA &= ~(1<<ADIE);//Desabilita interrupção do ADC
-}
-
-//---------------------------------------------------------------------------
-//Funções auxiliares
-//---------------------------------------------------------------------------
-
- void atualizaDisplay(int valor) {
-	PORTD = VetorDisplay[valor/10];
-  	PORTB = VetorDisplay[valor%10]; 
 }
