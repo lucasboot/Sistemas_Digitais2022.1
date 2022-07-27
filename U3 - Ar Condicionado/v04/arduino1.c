@@ -8,23 +8,17 @@
 #include <avr/interrupt.h>
 #include <util/delay.h>
 
-
 //BOTÕES
 #define BOTAO_CONFIRMAR PB3
 #define BOTAO_MUDARTEMP PB4
 #define BOTAO_MUDARMODO PB5
-
-//BUZZER
-#define Buzz PC1
-#define CTE 40000
-long int contadorBuzzer = 0; //auxiliar para o buzzer
 
 //Conversão ADC
 #define AREF 0 // Tensão de referência  = Aref
 #define AVCC 1 // Tensão de referência  = AVcc
 #define VR11 2 // Tensão de referência  = 1,1 V
 #define ADC0 0 // Seleciona a entrada ADC0
-#define ADC2 2 //seleciona a entrada ADC1
+#define ADC1 1 //seleciona a entrada ADC1
 #define Vtemp 6// Seleciona o Sensor de Temperatura
 #define V11 7 //  Seleciona a tensão de 1,1 V
 #define Vgnd 8 // Seleciona a tensão GND (0 V)
@@ -54,8 +48,6 @@ const unsigned char Modos[]={azul, vermelho, verde};
 //Temperatura selecionada
 unsigned int temperatura = 25; //comeca setado em 25°C
 unsigned int temperaturaReal;
-bool adequandoTemp = false;
-int diferencaTemp = 0;
 
 
 //Assinatura das funções de comunicação
@@ -100,12 +92,8 @@ void setup(){
     TCCR0B = (1 << CS02) | (1 <<CS00); //prescaller 1024 101
     TCCR0A = 0;
     TIMSK0 = 0<<TOIE0; //temporizador inicia desligado, só é ativado no modo AUTO
-
-  	
-	//Temporizador do buzzer
-  	TCCR2B = (1 << CS22);
-  	TCCR2A = (1<<WGM21);
-  	TIMSK2 = 0 << TOIE2;
+  
+  
 
     //Configs ADC
     adcBegin(AVCC, 0x01);   //Inicializa A/D
@@ -133,16 +121,13 @@ ISR(USART_RX_vect){
 ISR(PCINT0_vect) //interrupção do botão, confirmar temperatura
 {
      //uartString("oi");
-    if (!(tst_bit(PINB, BOTAO_CONFIRMAR))) {
-      	TIMSK2 = 1 << TOIE2;
+    if (!(tst_bit(PINB, BOTAO_CONFIRMAR))) { 
         if(mudando_temp)
             mudando_temp=false;
     } else if (!(tst_bit(PINB, BOTAO_MUDARTEMP))) {
-      	TIMSK2 = 1 << TOIE2;
          mudando_temp = true;
     } else if (!(tst_bit(PINB, BOTAO_MUDARMODO))) {
-      	TIMSK2 = 1 << TOIE2;
-        //uartString("oi");
+        uartString("oi");
         if(!mudando_temp){
             indiceModo++;
             if(indiceModo == 2) //modo AUTO
@@ -152,13 +137,7 @@ ISR(PCINT0_vect) //interrupção do botão, confirmar temperatura
 
             if(indiceModo>2)
                 indiceModo = 0;
-            PORTB = Modos[indiceModo];
-          	if(adequandoTemp){
-            	temperatura = temperatura - diferencaTemp; 
-				adequandoTemp = false;
-				uart_Transmit(temperatura);
-            }
-          	
+            PORTB = Modos[indiceModo]; 
         }
     }
 
@@ -174,75 +153,33 @@ ISR(ADC_vect)
         uint16_t ntemperatura = valor/parte + 16;
         if(ntemperatura > 30)
             ntemperatura = 30;
-		temperatura = ntemperatura;
         uart_Transmit(ntemperatura);
         //Transmitir para o outro arduino o valor
         //uart_Transmit(ntemperatura);
     
     } else { //sensor de temperatura
-        adcChannel(ADC2);       //Seleciona canal
+        adcChannel(ADC1);       //Seleciona canal
         //uartString("Temperatura: ");    //Envia string
         uint16_t valor = adcReadOnly();
         uint16_t ntemperatura = (valor*(5000 / 1024.0)-500)/10; //fórmula da conversão
         temperaturaReal = ntemperatura;
-		//uartDec2B(ntemperatura+100);
-		//uartString("\n");
+      	/*
+      	uint16_t dezena = temperatura/10;
+ 	    uint16_t unidade = temperatura%10;
+        //uartDec2B(temperatura); //Ler e envia valor do A/D
+        uartDec2B(dezena); //Ler e envia valor do A/D
+ 	    uartDec2B(unidade); //Ler e envia valor do A/D
+        uartString("\n"); 
+        */
     }
 
 }
 
-ISR(TIMER2_OVF_vect){
-  if(contadorBuzzer == 0){
-  	PORTC ^=(1 << Buzz);
- 	OCR2A=250;
-  }
-  contadorBuzzer++;
-  if (contadorBuzzer == 250)
-    	OCR2A=150;
-  if (contadorBuzzer == 450)
-    	OCR2A=200;
-  if (contadorBuzzer == 650)
-    	OCR2A=250;
-  if(contadorBuzzer >= 900){
-	PORTC ^=(1 << Buzz);
-    OCR2A=0;
-    TIMSK2 = 0 << TOIE2;
-    
-  }
-
-}
-
-ISR(TIMER0_OVF_vect){ //modo AUTO
+ISR(TIMER0_OVF_vect){
     cont++;
-    if(cont >= 2*30){ // if(cont >= 61*10) passaram 10min, valor diferente pra testes
+    if(cont >= 61){ //pasou 1min
         cont = 0;
-		if(temperatura != temperaturaReal && !adequandoTemp){
-			diferencaTemp = temperatura-temperaturaReal;
-			if(temperatura < temperaturaReal){
-				adequandoTemp = true;
-				temperatura = temperatura-temperaturaReal+temperatura;
-				if(temperatura < 16)
-					temperatura = 16;
-				uart_Transmit(temperatura);
-			} else if (temperatura > temperaturaReal){
-				adequandoTemp = true;
-				temperatura = temperatura-temperaturaReal+temperatura;
-				if(temperatura > 30){
-					temperatura = 30;
-				}
-				uart_Transmit(temperatura);
-			}
-			//uartDec2B(diferencaTemp+100);
-		} 
-		else if(adequandoTemp){
-			if((temperatura-diferencaTemp) == temperaturaReal){
-				temperatura = temperatura - diferencaTemp; 
-				adequandoTemp = false;
-				uart_Transmit(temperatura);
-            }
-			
-		}
-       
+        //uartString("alou");
     }
 
 }
